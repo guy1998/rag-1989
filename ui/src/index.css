@@ -1,0 +1,101 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background-color: #ffffff;
+    color: #1a1a2e;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Thin, sakura-tinted scrollbars */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #ffb7c5;
+    border-radius: 99px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #ff8fab;
+  }
+}
+
+@layer components {
+  /* Sakura gradient button */
+  .btn-sakura {
+    @apply inline-flex items-center justify-center gap-2
+           bg-gradient-to-r from-sakura-300 to-sakura-400
+           text-white font-medium rounded-xl
+           px-4 py-2 text-sm
+           shadow-sakura
+           hover:from-sakura-400 hover:to-sakura-500
+           active:scale-95
+           transition-all duration-150
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100;
+  }
+
+  /* Ghost / outline button */
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2
+           border border-sakura-200 text-sakura-500 font-medium rounded-xl
+           px-4 py-2 text-sm
+           hover:bg-sakura-50
+           active:scale-95
+           transition-all duration-150;
+  }
+
+  /* Sidebar item */
+  .sidebar-item {
+    @apply flex items-center gap-3 w-full rounded-xl px-3 py-2.5
+           text-sm text-gray-600 font-medium
+           hover:bg-sakura-50 hover:text-sakura-500
+           transition-colors duration-150 cursor-pointer;
+  }
+  .sidebar-item.active {
+    @apply bg-sakura-50 text-sakura-500;
+  }
+
+  /* Card */
+  .card {
+    @apply bg-white rounded-2xl border border-gray-100 shadow-message
+           hover:shadow-sakura transition-shadow duration-200;
+  }
+}
+
+/* Dot-pulse typing indicator */
+.typing-dot {
+  @apply w-2 h-2 rounded-full bg-sakura-300 inline-block;
+  animation: pulse-dot 1.2s infinite ease-in-out;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* Smooth prose for AI responses */
+.prose-answer p      { margin: 0 0 0.75em; }
+.prose-answer p:last-child { margin-bottom: 0; }
+.prose-answer ul,
+.prose-answer ol     { padding-left: 1.25em; margin: 0 0 0.75em; }
+.prose-answer li     { margin-bottom: 0.25em; }
+.prose-answer code   { background: #FFF0F5; color: #E8547A; padding: 0.1em 0.35em; border-radius: 4px; font-size: 0.88em; }
+.prose-answer pre    { background: #1a1a2e; color: #e8eaf6; padding: 1em; border-radius: 12px; overflow-x: auto; margin: 0.75em 0; }
+.prose-answer strong { color: #1a1a2e; }
