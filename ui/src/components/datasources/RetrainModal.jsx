@@ -9,6 +9,7 @@ export default function RetrainModal({ model, onClose, onRetrained }) {
   const [dragging,     setDrag]     = useState(false);
   const [phase,        setPhase]    = useState('loading'); // loading | idle | training | done | error
   const [progress,     setProg]     = useState(0);
+  const [trainStatus,  setStat]     = useState('preparing'); // preparing | training
   const [errMsg,       setErr]      = useState('');
   const fileRef  = useRef(null);
   const pollRef  = useRef(null);
@@ -40,8 +41,9 @@ export default function RetrainModal({ model, onClose, onRetrained }) {
   const startPolling = useCallback((modelName) => {
     pollRef.current = setInterval(async () => {
       try {
-        const { progress: p } = await fetchTrainingProgress(modelName);
+        const { progress: p, status: s } = await fetchTrainingProgress(modelName);
         setProg(p);
+        setStat(s ?? 'preparing');
         if (p >= 100) clearInterval(pollRef.current);
       } catch {
         // ignore
@@ -169,14 +171,28 @@ export default function RetrainModal({ model, onClose, onRetrained }) {
 
           {isTraining && (
             <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-2 text-sm text-sky-600 font-medium">
-                <Loader2 size={15} className="animate-spin" />
-                Retraining model…
-              </div>
-              <div className="w-full h-2 bg-sky-100 rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-sky-300 to-sky-400 rounded-full transition-all duration-700"
-                     style={{ width: `${progress}%` }} />
-              </div>
+              {trainStatus === 'preparing' ? (
+                <div className="flex flex-col items-center gap-3 py-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-sakura-300 animate-bounce [animation-delay:-0.3s]" />
+                    <span className="w-2 h-2 rounded-full bg-sakura-400 animate-bounce [animation-delay:-0.15s]" />
+                    <span className="w-2 h-2 rounded-full bg-sakura-500 animate-bounce" />
+                  </div>
+                  <p className="text-sm text-gray-600 font-medium">Thinking…</p>
+                  <p className="text-xs text-gray-400">Encoding corpus and building knowledge graph</p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 text-sm text-sky-600 font-medium">
+                    <Loader2 size={15} className="animate-spin" />
+                    Retraining model…
+                  </div>
+                  <div className="w-full h-2 bg-sky-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-sky-300 to-sky-400 rounded-full transition-all duration-700"
+                         style={{ width: `${progress}%` }} />
+                  </div>
+                </>
+              )}
               <p className="text-xs text-gray-400">Please wait while the model rebuilds.</p>
             </div>
           )}

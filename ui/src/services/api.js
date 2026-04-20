@@ -55,8 +55,8 @@ export async function retrainModel(modelName, currentPdfs, newFiles) {
 
 export async function fetchTrainingProgress(modelName) {
   const res = await fetch(`${BASE}/train/progress/${encodeURIComponent(modelName)}`);
-  if (!res.ok) return { progress: 0 };
-  return res.json(); // { progress: 0-100 }
+  if (!res.ok) return { progress: 0, status: 'preparing' };
+  return res.json(); // { progress: 0-100, status: 'preparing' | 'training' }
 }
 
 // ── Generate (streaming) ───────────────────────────────────────────────────

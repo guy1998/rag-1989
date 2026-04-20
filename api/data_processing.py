@@ -67,18 +67,27 @@ def pdfs_to_chain_graphs(pdf_paths: List[str],
                          seed_kg: SeedKG = None,
                          pca_reduce=True,
                          stride=None,
-                         sbert_model=None) -> List[Dict]:
+                         sbert_model=None,
+                         precomputed_embeddings=None) -> List[Dict]:
     """
     Extract sentences from multiple PDFs, encode with SentenceTransformer,
     reduce with PCA to target_dim, and construct chain graphs where each example
     is seq_len text nodes followed by num_leaves KG nodes (heads/relations/tails).
+
+    If precomputed_embeddings (np.ndarray, shape [n_sentences, embed_dim]) is supplied,
+    the sbert.encode() call is skipped entirely — the caller is responsible for ensuring
+    the array aligns with the sentences returned by extract_sentences_from_pdf().
     """
     # 1) extract sentences
     all_sentences = extract_sentences_from_pdf(pdf_paths)
 
-    # 2) sentence embedding — use pre-loaded model if provided, otherwise load once
-    sbert = sbert_model if sbert_model is not None else SentenceTransformer(embed_model_name)
-    embeddings = sbert.encode(all_sentences, show_progress_bar=True)
+    # 2) sentence embedding — use caller-supplied array when available to avoid a
+    #    redundant encode pass; otherwise fall back to encoding here.
+    if precomputed_embeddings is not None:
+        embeddings = precomputed_embeddings
+    else:
+        sbert = sbert_model if sbert_model is not None else SentenceTransformer(embed_model_name)
+        embeddings = sbert.encode(all_sentences, show_progress_bar=True)
     original_dim = embeddings.shape[1]
 
     # 3) PCA reduction (optional)

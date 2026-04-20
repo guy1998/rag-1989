@@ -49,6 +49,7 @@ _openai_client = OpenAI(
 )
 
 retrievers = {}
+training_status = {}  # model_name → 'preparing' | 'training' | 'indexing'
 
 def load_all_retrievers():
 
@@ -91,7 +92,11 @@ def train_model():
     triples = kg_builder.build_kg_from_sentences(corpus)
     seed_kg = SeedKG(triples)
 
-    graphs = pdfs_to_chain_graphs(saved_paths, seq_len=seq_len, num_leaves=num_leaves, target_dim=target_dim, seed_kg=seed_kg, sbert_model=emb_model)
+    # Encode corpus once — reused by both chain-graph construction and the retriever index.
+    training_status[model_name] = 'preparing'
+    raw_embeddings = emb_model.encode(corpus, show_progress_bar=False)
+
+    graphs = pdfs_to_chain_graphs(saved_paths, seq_len=seq_len, num_leaves=num_leaves, target_dim=target_dim, seed_kg=seed_kg, sbert_model=emb_model, precomputed_embeddings=raw_embeddings)
 
     dataset = GraphMERTDataset(graphs)
 
@@ -104,6 +109,7 @@ def train_model():
     optimizer = torch.optim.Adam(graph_model.parameters(), lr=1e-3)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    training_status[model_name] = 'training'
     training_progress[model_name] = 0
     train(graph_model, dataloader, seed_kg, optimizer, device, epochs=3, progress_key=model_name)
     training_progress[model_name] = 100
@@ -112,7 +118,9 @@ def train_model():
     torch.save(graph_model.state_dict(), model_path)
 
     torch.save({'triples': triples, 'sentences': corpus}, os.path.join(MODEL_DIR, f'{model_name}_kg.pt'))
-    retrievers[model_name] = RetrieverQA(corpus, emb_model)
+    # Pass precomputed embeddings so the retriever skips a second encode pass.
+    retrievers[model_name] = RetrieverQA(corpus, emb_model, precomputed_emb=raw_embeddings)
+    training_status.pop(model_name, None)
 
     return jsonify({ 'success': True, 'message': 'Model trained and saved', 'model_path': model_path})
 
@@ -151,7 +159,11 @@ def re_train_model():
     triples = kg_builder.build_kg_from_sentences(corpus)
     seed_kg = SeedKG(triples)
 
-    graphs = pdfs_to_chain_graphs(saved_paths, seq_len=seq_len, num_leaves=num_leaves, target_dim=target_dim, seed_kg=seed_kg, sbert_model=emb_model)
+    # Encode corpus once — reused by both chain-graph construction and the retriever index.
+    training_status[model_name] = 'preparing'
+    raw_embeddings = emb_model.encode(corpus, show_progress_bar=False)
+
+    graphs = pdfs_to_chain_graphs(saved_paths, seq_len=seq_len, num_leaves=num_leaves, target_dim=target_dim, seed_kg=seed_kg, sbert_model=emb_model, precomputed_embeddings=raw_embeddings)
 
     dataset = GraphMERTDataset(graphs)
 
@@ -164,6 +176,7 @@ def re_train_model():
     optimizer = torch.optim.Adam(graph_model.parameters(), lr=1e-3)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    training_status[model_name] = 'training'
     training_progress[model_name] = 0
     train(graph_model, dataloader, seed_kg, optimizer, device, epochs=3, progress_key=model_name)
     training_progress[model_name] = 100
@@ -172,7 +185,9 @@ def re_train_model():
     torch.save(graph_model.state_dict(), model_path)
 
     torch.save({'triples': triples, 'sentences': corpus}, os.path.join(MODEL_DIR, f'{model_name}_kg.pt'))
-    retrievers[model_name] = RetrieverQA(corpus, emb_model)
+    # Pass precomputed embeddings so the retriever skips a second encode pass.
+    retrievers[model_name] = RetrieverQA(corpus, emb_model, precomputed_emb=raw_embeddings)
+    training_status.pop(model_name, None)
 
     return jsonify({'success': True,'message': 'Model trained and saved', 'model_path': model_path})
 
@@ -180,7 +195,8 @@ def re_train_model():
 @api_bp.route('/train/progress/<model_name>', methods=['GET'])
 def get_progress(model_name):
     return jsonify({
-        'progress': training_progress.get(model_name, 0)
+        'progress': training_progress.get(model_name, 0),
+        'status': training_status.get(model_name, 'training'),
     })
 
 
