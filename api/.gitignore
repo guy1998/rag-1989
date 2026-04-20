@@ -1,0 +1,15 @@
+/venv
+.env
+
+# Ignore database files
+*.db
+# Ignore log files
+*.log
+# Ignore compiled Python files
+__pycache__/
+*.pyc
+*.pyo
+# Ignore virtual environment directories
+venv/
+models
+uploads
