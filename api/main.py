@@ -52,7 +52,6 @@ retrievers = {}
 training_status = {}  # model_name → 'preparing' | 'training' | 'indexing'
 
 def load_all_retrievers():
-
     for filename in os.listdir(MODEL_DIR):
         if not filename.endswith("_kg.pt"):
             continue
@@ -60,7 +59,11 @@ def load_all_retrievers():
         kg_path = os.path.join(MODEL_DIR, filename)
         saved = torch.load(kg_path)
         sentences = saved["sentences"]
-        retriever = RetrieverQA(sentences, emb_model)
+        # Use persisted embeddings when available (avoids re-encoding on every restart).
+        # Falls back to encoding for older files that pre-date this field.
+        stored_emb = saved.get("embeddings")
+        triples = saved.get("triples", [])
+        retriever = RetrieverQA(sentences, emb_model, precomputed_emb=stored_emb, triples=triples)
         retrievers[model_name] = retriever
         print(f"Loaded retriever for model: {model_name}")
 
@@ -117,9 +120,8 @@ def train_model():
     model_path = os.path.join(MODEL_DIR, f'{model_name}.pth')
     torch.save(graph_model.state_dict(), model_path)
 
-    torch.save({'triples': triples, 'sentences': corpus}, os.path.join(MODEL_DIR, f'{model_name}_kg.pt'))
-    # Pass precomputed embeddings so the retriever skips a second encode pass.
-    retrievers[model_name] = RetrieverQA(corpus, emb_model, precomputed_emb=raw_embeddings)
+    torch.save({'triples': triples, 'sentences': corpus, 'embeddings': raw_embeddings}, os.path.join(MODEL_DIR, f'{model_name}_kg.pt'))
+    retrievers[model_name] = RetrieverQA(corpus, emb_model, precomputed_emb=raw_embeddings, triples=triples)
     training_status.pop(model_name, None)
 
     return jsonify({ 'success': True, 'message': 'Model trained and saved', 'model_path': model_path})
@@ -184,9 +186,8 @@ def re_train_model():
     model_path = os.path.join(MODEL_DIR, f'{model_name}.pth')
     torch.save(graph_model.state_dict(), model_path)
 
-    torch.save({'triples': triples, 'sentences': corpus}, os.path.join(MODEL_DIR, f'{model_name}_kg.pt'))
-    # Pass precomputed embeddings so the retriever skips a second encode pass.
-    retrievers[model_name] = RetrieverQA(corpus, emb_model, precomputed_emb=raw_embeddings)
+    torch.save({'triples': triples, 'sentences': corpus, 'embeddings': raw_embeddings}, os.path.join(MODEL_DIR, f'{model_name}_kg.pt'))
+    retrievers[model_name] = RetrieverQA(corpus, emb_model, precomputed_emb=raw_embeddings, triples=triples)
     training_status.pop(model_name, None)
 
     return jsonify({'success': True,'message': 'Model trained and saved', 'model_path': model_path})
@@ -215,9 +216,16 @@ def generate_answer():
 
     retriever = retrievers[model_name]
     top_sents = retriever.query(question, top_k=3)
-    context = "\n".join([s for s,_ in top_sents])
+    retrieved_sentences = [s for s, _ in top_sents]
+    context = "\n".join(retrieved_sentences)
 
-    prompt = f"Context:\n{context}\nQuestion: {question}\nAnswer:"
+    kg_facts = retriever.get_kg_context(retrieved_sentences, max_facts=10)
+    kg_section = (
+        "\n\nKnowledge graph facts:\n" + "\n".join(f"- {f}" for f in kg_facts)
+        if kg_facts else ""
+    )
+
+    prompt = f"Context:\n{context}{kg_section}\n\nQuestion: {question}\nAnswer:"
 
     def generate():
         try:
