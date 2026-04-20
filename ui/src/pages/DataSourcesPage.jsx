@@ -5,7 +5,6 @@ import { DataSourceCard, NewDataSourceCard } from '../components/datasources/Dat
 import CreateDataSourceModal from '../components/datasources/CreateDataSourceModal';
 import RetrainModal         from '../components/datasources/RetrainModal';
 import PdfListModal         from '../components/datasources/PdfListModal';
-import GraphModal           from '../components/datasources/GraphModal';
 import { fetchModels }      from '../services/api';
 import { useChats }         from '../hooks/useChats';
 
@@ -20,7 +19,6 @@ export default function DataSourcesPage() {
   const [creating,    setCreating]    = useState(false);
   const [retraining,  setRetraining]  = useState(null); // model object
   const [viewingPdfs, setViewingPdfs] = useState(null); // model object
-  const [viewingGraph,setViewingGraph]= useState(null); // model object
 
   const load = useCallback(() => {
     setLoading(true);
@@ -117,7 +115,6 @@ export default function DataSourcesPage() {
                   model={model}
                   onRetrain={() => setRetraining(model)}
                   onViewPdfs={() => setViewingPdfs(model)}
-                  onViewGraph={() => setViewingGraph(model)}
                 />
               ))}
               <NewDataSourceCard onClick={() => setCreating(true)} />
@@ -144,12 +141,6 @@ export default function DataSourcesPage() {
         <PdfListModal
           model={viewingPdfs}
           onClose={() => setViewingPdfs(null)}
-        />
-      )}
-      {viewingGraph && (
-        <GraphModal
-          model={viewingGraph}
-          onClose={() => setViewingGraph(null)}
         />
       )}
     </div>

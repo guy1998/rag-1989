@@ -205,7 +205,6 @@ def collate_fn(batch, seed_kg: SeedKG = None, sbert: SentenceTransformer = None,
                 emb = sbert.encode([hr])[0]
                 # reduce if needed
                 if emb.shape[0] != D:
-                    # naive truncate or pad
                     if emb.shape[0] > D:
                         emb = emb[:D]
                     else:

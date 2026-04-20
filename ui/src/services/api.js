@@ -14,8 +14,10 @@ export async function fetchModelPdfs(modelName) {
   return res.json(); // { success, pdfs: [filename] }
 }
 
-export function graphPngUrl(modelName) {
-  return `${BASE}/graph/${encodeURIComponent(modelName)}/png`;
+export async function fetchGraph(modelName) {
+  const res = await fetch(`${BASE}/graph/${encodeURIComponent(modelName)}`);
+  if (!res.ok) throw new Error('Failed to fetch graph');
+  return res.json(); // NetworkX node-link: { nodes, links, directed, ... }
 }
 
 // ── Training ───────────────────────────────────────────────────────────────

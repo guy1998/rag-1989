@@ -13,6 +13,8 @@ import networkx as nx
 from sentence_transformers import SentenceTransformer
 from openai import OpenAI
 
+import matplotlib
+matplotlib.use('Agg')  # non-interactive backend — no Tk, safe from background threads
 import matplotlib.pyplot as plt
 import io
 from chat_service import ChatService
@@ -127,7 +129,7 @@ def re_train_model():
 
     for already_on_server_pdf in os.listdir(model_folder):
         if already_on_server_pdf not in current_pdfs:
-            os.remove(already_on_server_pdf)
+            os.remove(os.path.join(model_folder, already_on_server_pdf))
 
     saved_paths = [os.path.join(model_folder, current_pdf) for current_pdf in current_pdfs]
 
@@ -288,6 +290,10 @@ def get_graph_png(model_name):
         G.add_node(t)
         G.add_edge(h, t, label=r)
 
+    # Limit to 200 nodes — keep the highest-degree ones
+    if len(G.nodes) > 100:
+        top_nodes = sorted(G.nodes, key=lambda n: G.degree(n), reverse=True)[:100]
+        G = G.subgraph(top_nodes).copy()
 
     plt.figure(figsize=(10, 10))
     pos = nx.spring_layout(G, k=0.5, seed=42)

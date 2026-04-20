@@ -1,5 +1,4 @@
-import { FileText, RefreshCw, Image, Loader2, CheckCircle2, Plus } from 'lucide-react';
-
+import { FileText, RefreshCw, Network, Loader2, CheckCircle2, Plus } from 'lucide-react';
 function StatusBadge({ progress }) {
   if (progress === 100) {
     return (
@@ -20,7 +19,7 @@ function StatusBadge({ progress }) {
 }
 
 /** Card for an existing data source */
-export function DataSourceCard({ model, onRetrain, onViewPdfs, onViewGraph }) {
+export function DataSourceCard({ model, onRetrain, onViewPdfs }) {
   return (
     <div className="card p-5 flex flex-col gap-4 animate-fade-in">
       {/* Header */}
@@ -54,10 +53,10 @@ export function DataSourceCard({ model, onRetrain, onViewPdfs, onViewGraph }) {
           PDFs
         </button>
         <button
-          onClick={onViewGraph}
+          onClick={() => window.open(`/graph/${encodeURIComponent(model.name)}`, '_blank')}
           className="btn-ghost text-xs py-1.5 px-3"
         >
-          <Image size={12} />
+          <Network size={12} />
           Graph
         </button>
         <button
