@@ -19,6 +19,16 @@ from nltk import sent_tokenize
 # Loaded once at module import — reused across all requests
 _nlp = spacy.load("en_core_web_sm")
 
+# Attach coreference resolution if coreferee is installed and compatible.
+# Falls back silently so the pipeline works even if coreferee is missing or
+# incompatible with the installed spaCy version.
+_has_coref = False
+try:
+    _nlp.add_pipe("coreferee")
+    _has_coref = True
+except Exception:
+    pass
+
 class SeedKG:
     """Simple seed KG loader and vocabulary for head/relation/tail."""
     def __init__(self, triples: List[Tuple[str,str,str]] = None):
@@ -169,22 +179,55 @@ class AutoKGBuilder:
     def __init__(self):
         self.nlp = _nlp
 
-    def extract_triples(self, sentence):
-        doc = self.nlp(sentence)
+    # ── Coreference resolution helper ─────────────────────────────────────────
 
+    def _resolve_token(self, doc, token) -> str:
+        """
+        Return the canonical surface form for a token.
+
+        When coreferee is available and the token belongs to a coreference
+        chain, the first (head) mention of that chain is returned instead of
+        the raw pronoun or anaphor. Falls back to the bare token text if
+        coreferee is absent or no chain is found.
+        """
+        if _has_coref and token._.coref_chains:
+            resolved = token._.coref_chains.resolve(token)
+            if resolved:
+                return " ".join(t.text for t in resolved)
+        return token.text
+
+    # ── Triple extraction ──────────────────────────────────────────────────────
+
+    def _extract_from_doc(self, doc) -> List[Tuple[str, str, str]]:
+        """SVO extraction over a pre-parsed spaCy Doc."""
         triples = []
         for token in doc:
-            # Rule-based subject–verb–object extraction
             if token.dep_ == "ROOT" and token.pos_ == "VERB":
-                subj = [w.text for w in token.lefts if w.dep_ in ("nsubj", "nsubjpass")]
-                obj  = [w.text for w in token.rights if w.dep_ in ("dobj", "pobj")]
-
-                if subj and obj:
-                    triples.append((subj[0], token.lemma_, obj[0]))
-
+                subj_tokens = [w for w in token.lefts  if w.dep_ in ("nsubj", "nsubjpass")]
+                obj_tokens  = [w for w in token.rights if w.dep_ in ("dobj", "pobj")]
+                if subj_tokens and obj_tokens:
+                    subj = self._resolve_token(doc, subj_tokens[0])
+                    obj  = self._resolve_token(doc, obj_tokens[0])
+                    triples.append((subj, token.lemma_, obj))
         return triples
 
-    def build_kg_from_sentences(self, sentences):
+    def extract_triples(self, sentence: str) -> List[Tuple[str, str, str]]:
+        """Extract triples from a single sentence (kept for external callers)."""
+        return self._extract_from_doc(self.nlp(sentence))
+
+    def build_kg_from_sentences(self, sentences: List[str]) -> List[Tuple[str, str, str]]:
+        """
+        Extract triples from a corpus of sentences.
+
+        When coreferee is available, the entire corpus is processed as one
+        document so that cross-sentence coreferences ("GraphMeRT … It …") are
+        resolved before triple extraction. Without coreferee, sentences are
+        processed individually as before.
+        """
+        if _has_coref:
+            doc = self.nlp(" ".join(sentences))
+            return self._extract_from_doc(doc)
+
         triples = []
         for s in sentences:
             triples.extend(self.extract_triples(s))
